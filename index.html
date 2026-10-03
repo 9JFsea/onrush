@@ -305,6 +305,10 @@
   .metro-bpm-val { font-size:1.6rem; font-weight:800; line-height:1; }
   .metro-bpm-lbl { font-size:0.58rem; color:var(--fg-dim); letter-spacing:0.1em; text-transform:uppercase; }
   .metro-sig-lbl { font-size:0.78rem; color:var(--fg-dim); font-weight:600; }
+  .metro-sig-ctrl { display:flex; align-items:center; gap:4px; }
+  .metro-sig-btn { width:24px; height:24px; font-size:0.9rem; }
+  .metro-sig-val { font-size:1.2rem; font-weight:700; min-width:20px; text-align:center; }
+  .metro-sig-sep { font-size:1.2rem; font-weight:700; color:var(--fg-dim); padding:0 2px; }
   .metro-beats { display:flex; gap:8px; justify-content:center; padding:8px 0; flex-wrap:wrap; }
   .metro-beat-dot {
     width:13px; height:13px; border-radius:50%;
@@ -582,6 +586,7 @@ function makeBoard(bid) {
   let bShowAll = false, bScaleActive = false, bSelectedChord = null;
   let progAutoInterval = null, progStepIdx = 0, progSteps = [];
   let metroBPM = 80, metroBeats = 4, metroCurrentBeat = -1;
+  let metroNumerator = 4, metroDenominator = 4;
   let metroSchedTimer = null, metroNextTime = 0, metroNextBeat = 0, metroBar = 0;
 
   const p  = id => `${bid}-${id}`;
@@ -880,10 +885,15 @@ function makeBoard(bid) {
       <div class="metro-bpm-box"><span class="metro-bpm-val" id="${p('metroBPMVal')}">${metroBPM}</span><span class="metro-bpm-lbl">BPM</span></div>
       <button class="metro-adj-btn" id="${p('bpmUp')}">＋</button>
       <span class="metro-sig-lbl">拍子</span>
-      <select class="scale-select" id="${p('metroSig')}">
-        <option value="4">4/4</option><option value="3">3/4</option>
-        <option value="2">2/4</option><option value="6">6/8</option><option value="5">5/4</option>
-      </select>`;
+      <div class="metro-sig-ctrl">
+        <button class="metro-adj-btn metro-sig-btn" id="${p('numDn')}">－</button>
+        <span class="metro-sig-val" id="${p('metroNum')}">4</span>
+        <button class="metro-adj-btn metro-sig-btn" id="${p('numUp')}">＋</button>
+        <span class="metro-sig-sep">/</span>
+        <button class="metro-adj-btn metro-sig-btn" id="${p('denDn')}">－</button>
+        <span class="metro-sig-val" id="${p('metroDen')}">4</span>
+        <button class="metro-adj-btn metro-sig-btn" id="${p('denUp')}">＋</button>
+      </div>`;
     mp.appendChild(mbpmRow);
     const mbeats = document.createElement('div'); mbeats.className = 'metro-beats'; mbeats.id = p('metro-beats');
     for (let i = 0; i < metroBeats; i++) {
@@ -904,8 +914,12 @@ function makeBoard(bid) {
     container.appendChild(mp);
     el('bpmDn').onclick = () => adjustBPM(-5);
     el('bpmUp').onclick = () => adjustBPM(+5);
-    el('metroSig').addEventListener('change', e => setTimeSig(parseInt(e.target.value)));
-    metroBPM = 80; setTimeSig(4);
+    const DEN_VALS = [2, 4, 8, 16];
+    el('numDn').onclick = () => { metroNumerator = Math.max(1, metroNumerator - 1); el('metroNum').textContent = metroNumerator; setTimeSig(metroNumerator, metroDenominator); };
+    el('numUp').onclick = () => { metroNumerator = Math.min(16, metroNumerator + 1); el('metroNum').textContent = metroNumerator; setTimeSig(metroNumerator, metroDenominator); };
+    el('denDn').onclick = () => { const i = DEN_VALS.indexOf(metroDenominator); metroDenominator = DEN_VALS[Math.max(0, i - 1)]; el('metroDen').textContent = metroDenominator; };
+    el('denUp').onclick = () => { const i = DEN_VALS.indexOf(metroDenominator); metroDenominator = DEN_VALS[Math.min(DEN_VALS.length - 1, i + 1)]; el('metroDen').textContent = metroDenominator; };
+    metroBPM = 80; setTimeSig(4, 4);
   }
 
   function scheduleClick(time, isDown) {
@@ -960,8 +974,8 @@ function makeBoard(bid) {
     metroBPM = Math.max(40, Math.min(220, metroBPM + delta));
     const v = el('metroBPMVal'); if (v) v.textContent = metroBPM;
   }
-  function setTimeSig(beats) {
-    metroBeats = beats; stopMetro();
+  function setTimeSig(beats, den) {
+    metroBeats = beats; if (den !== undefined) metroDenominator = den; stopMetro();
     const row = el('metro-beats'); if (!row) return;
     row.innerHTML = '';
     for (let i = 0; i < beats; i++) {
