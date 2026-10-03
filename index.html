@@ -1,0 +1,779 @@
+<title>OnPush</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#e89820">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OnPush">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700;800&display=swap">
+
+<style>
+  :root {
+    --bg: #0d0b09;
+    --surface: #1a1410;
+    --card: #241c12;
+    --fb-bg: linear-gradient(135deg, #3d2b18 0%, #2e1f0e 100%);
+    --nut: #e8d8a8;
+    --fret-color: #7a7a68;
+    --string-6: #c0a050;
+    --string-1: #d4c080;
+    --fg: #f0e6d2;
+    --fg-dim: #8a7860;
+    --accent: #e89820;
+    --correct: #4a9e50;
+    --wrong: #c84040;
+    --highlight: #3a80c8;
+    --dot-marker: rgba(255,255,255,0.18);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f5efe5; --surface: #ece3d5; --card: #e0d5c2;
+      --fb-bg: linear-gradient(135deg, #6a4828 0%, #4e3218 100%);
+      --nut: #f0e8d0; --fret-color: #6a6a58; --string-6: #b89040; --string-1: #c8aa60;
+      --fg: #1a1208; --fg-dim: #6a5840; --accent: #c07810;
+      --correct: #2e7d32; --wrong: #c62828; --highlight: #1565c0;
+      --dot-marker: rgba(255,255,255,0.3); color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f5efe5; --surface: #ece3d5; --card: #e0d5c2;
+    --fb-bg: linear-gradient(135deg, #6a4828 0%, #4e3218 100%);
+    --nut: #f0e8d0; --fret-color: #6a6a58; --string-6: #b89040; --string-1: #c8aa60;
+    --fg: #1a1208; --fg-dim: #6a5840; --accent: #c07810;
+    --correct: #2e7d32; --wrong: #c62828; --highlight: #1565c0;
+    --dot-marker: rgba(255,255,255,0.3); color-scheme: light;
+  }
+  :root[data-theme="dark"] { color-scheme: dark; }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: 'Noto Sans JP', system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 0 0 40px; min-height: 100%;
+  }
+
+  header { width: 100%; text-align: center; padding: 20px 16px 10px; }
+  h1 { margin: 0 0 2px; font-size: 1.5rem; font-weight: 800; letter-spacing: 0.03em; color: var(--accent); }
+  .subtitle { margin: 0; font-size: 0.8rem; color: var(--fg-dim); }
+
+  .tabs {
+    display: flex; gap: 3px; background: var(--surface); border-radius: 12px;
+    padding: 4px; margin: 12px 16px 0; max-width: 580px; width: calc(100% - 32px);
+  }
+  .tab {
+    flex: 1; padding: 9px 6px; border: none; border-radius: 8px;
+    background: transparent; color: var(--fg-dim); font-family: inherit;
+    font-size: 0.78rem; font-weight: 700; cursor: pointer;
+    transition: background 0.15s, color 0.15s; line-height: 1.3;
+  }
+  .tab.active { background: var(--accent); color: #fff; }
+  .tab:hover:not(.active) { background: var(--card); color: var(--fg); }
+
+  .score-bar {
+    display: flex; gap: 24px; justify-content: center; align-items: center; padding: 8px 0 4px;
+  }
+  .score-item { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .score-lbl { font-size: 0.68rem; color: var(--fg-dim); letter-spacing: 0.06em; text-transform: uppercase; }
+  .score-val { font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+  .score-val.good { color: var(--correct); }
+  .score-val.bad  { color: var(--wrong); }
+  .score-val.neu  { color: var(--fg); }
+
+  .quiz-prompt {
+    background: var(--card); border-radius: 14px; padding: 14px 24px;
+    margin: 10px 16px 0; text-align: center; max-width: 580px; width: calc(100% - 32px);
+  }
+  .q-label { font-size: 0.72rem; color: var(--fg-dim); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+  .q-note { font-size: 2.8rem; font-weight: 800; color: var(--accent); line-height: 1; margin: 2px 0 4px; }
+  .q-sub { font-size: 0.82rem; color: var(--fg-dim); }
+
+  .explore-hint { text-align: center; font-size: 0.84rem; color: var(--fg-dim); padding: 8px 16px 0; max-width: 580px; margin: 0 auto; }
+
+  .explore-controls {
+    display: flex; gap: 8px; justify-content: center; align-items: center;
+    flex-wrap: wrap; padding: 8px 16px 0; max-width: 580px; margin: 0 auto;
+  }
+  .toggle-all-btn {
+    padding: 7px 18px; border-radius: 8px; border: 2px solid var(--fg-dim);
+    background: var(--card); color: var(--fg); font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.12s;
+  }
+  .toggle-all-btn:hover { border-color: var(--accent); background: rgba(232,152,32,0.12); }
+  .toggle-all-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .clear-btn {
+    padding: 7px 18px; border-radius: 8px; border: 2px solid var(--fg-dim);
+    background: transparent; color: var(--fg-dim); font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.12s;
+  }
+  .clear-btn:hover { border-color: var(--fg); color: var(--fg); }
+
+  .scale-panel {
+    background: var(--card); border-radius: 12px; padding: 12px 16px;
+    margin: 8px 16px 0; max-width: 580px; width: calc(100% - 32px);
+  }
+  .scale-panel-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-dim); margin-bottom: 8px; text-align: center; }
+  .scale-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .scale-lbl { font-size: 0.78rem; font-weight: 600; color: var(--fg-dim); }
+  .scale-select {
+    padding: 6px 10px; border-radius: 7px; border: 1.5px solid var(--fg-dim);
+    background: var(--surface); color: var(--fg); font-family: inherit; font-size: 0.82rem;
+    cursor: pointer; transition: border-color 0.12s;
+  }
+  .scale-select:focus { outline: none; border-color: var(--accent); }
+  .scale-toggle-btn {
+    padding: 7px 18px; border-radius: 8px; border: 2px solid var(--accent);
+    background: transparent; color: var(--accent); font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.12s;
+  }
+  .scale-toggle-btn:hover, .scale-toggle-btn.active { background: var(--accent); color: #fff; }
+
+  .chord-panel {
+    background: var(--card); border-radius: 12px; padding: 12px 16px;
+    margin: 8px 16px 0; max-width: 580px; width: calc(100% - 32px);
+  }
+  .chord-cat-row { display: flex; gap: 5px; justify-content: center; margin-bottom: 8px; }
+  .chord-cat-btn {
+    padding: 4px 8px; border-radius: 6px; border: 1.5px solid var(--fg-dim);
+    background: var(--surface); color: var(--fg-dim); font-family: inherit;
+    font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.12s; white-space: nowrap;
+  }
+  .chord-cat-btn.active { border-color: var(--accent); background: rgba(232,152,32,0.15); color: var(--accent); }
+  .chord-btn-row { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+  .chord-btn {
+    padding: 6px 12px; border-radius: 7px; border: 1.5px solid var(--fg-dim);
+    background: var(--surface); color: var(--fg); font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.12s;
+    min-width: 52px; text-align: center;
+  }
+  .chord-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .chord-btn.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ボードタグ */
+  .board-tag-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px 2px; max-width: 620px; margin: 0 auto; width: 100%;
+  }
+  .board-tag {
+    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em;
+    padding: 3px 10px; border-radius: 5px; color: #fff; text-transform: uppercase;
+  }
+  .board-tag.tag-a { background: var(--accent); }
+  .board-tag.tag-b { background: var(--highlight); }
+  .board-tag-line { flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
+  .board-toggle-btn {
+    padding: 3px 10px; border-radius: 5px; border: 1.5px solid rgba(255,255,255,0.15);
+    background: transparent; color: var(--fg-dim); font-family: inherit;
+    font-size: 0.68rem; font-weight: 700; cursor: pointer; letter-spacing: 0.06em;
+    transition: all 0.15s;
+  }
+  .board-toggle-btn:hover { border-color: var(--highlight); color: var(--highlight); }
+  .board-toggle-btn.is-off { border-color: var(--fg-dim); opacity: 0.5; }
+
+  .board-divider {
+    border: none; border-top: 2px dashed rgba(255,255,255,0.06);
+    margin: 20px 16px 0; width: calc(100% - 32px); max-width: 620px;
+  }
+
+  .str-label.muted { color: var(--wrong) !important; }
+  .note-dot.scale-root { border: 2.5px solid rgba(255,255,255,0.9) !important; box-shadow: 0 0 14px currentColor !important; }
+
+  .note-legend {
+    display: flex; flex-wrap: wrap; gap: 5px; justify-content: center;
+    padding: 10px 16px 0; max-width: 580px; margin: 0 auto;
+  }
+  .legend-badge {
+    padding: 5px 10px; border-radius: 7px; font-size: 0.78rem; font-weight: 700;
+    color: #fff; letter-spacing: 0.01em; transition: opacity 0.2s, transform 0.15s, box-shadow 0.15s;
+    cursor: default; user-select: none;
+  }
+  .legend-badge.dimmed { opacity: 0.18; }
+  .legend-badge.scale-root-badge { box-shadow: 0 0 0 2.5px rgba(255,255,255,0.85); }
+
+  .fb-wrapper { width: 100%; overflow-x: auto; padding: 12px 16px 0; -webkit-overflow-scrolling: touch; }
+  .fretboard {
+    background: var(--fb-bg); border-radius: 10px; border: 2px solid rgba(0,0,0,0.5);
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.4), 0 6px 20px rgba(0,0,0,0.4);
+    min-width: 720px; padding: 10px 8px; position: relative;
+  }
+  .fb-grid { display: grid; grid-template-columns: 38px 40px repeat(12, 1fr); }
+  .fb-pos-markers { display: grid; grid-template-columns: 38px 40px repeat(12, 1fr); margin-bottom: 4px; }
+  .pos-cell { display: flex; justify-content: center; align-items: center; height: 14px; }
+  .pos-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dot-marker); }
+  .pos-dot-double { display: flex; gap: 4px; }
+  .fb-fret-nums { display: grid; grid-template-columns: 38px 40px repeat(12, 1fr); margin-bottom: 6px; }
+  .fret-num { text-align: center; font-size: 0.78rem; font-weight: 700; color: rgba(255,255,255,0.65); font-variant-numeric: tabular-nums; }
+  .string-row { display: contents; }
+  .str-label { display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: rgba(255,255,255,0.5); position: relative; z-index: 2; }
+  .nut-col { position: relative; display: flex; align-items: center; justify-content: center; }
+  .nut-col::after {
+    content: ''; position: absolute; top: 0; bottom: 0; width: 5px;
+    background: var(--nut); border-radius: 2px; box-shadow: 0 0 6px rgba(232,216,168,0.3);
+  }
+  .fret-cell { position: relative; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .fret-cell::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); z-index: 1; }
+  .fret-cell:not(:last-of-type)::after {
+    content: ''; position: absolute; right: 0; top: 4px; bottom: 4px;
+    width: 2px; background: var(--fret-color); z-index: 2; box-shadow: 0 0 2px rgba(0,0,0,0.4);
+  }
+  [data-si="0"] .fret-cell::before { height: 3px;   background: var(--string-6); }
+  [data-si="1"] .fret-cell::before { height: 2.5px; background: #c0a858; }
+  [data-si="2"] .fret-cell::before { height: 2px;   background: #c8b060; }
+  [data-si="3"] .fret-cell::before { height: 1.5px; background: #ccc070; }
+  [data-si="4"] .fret-cell::before { height: 1.5px; background: var(--string-1); }
+  [data-si="5"] .fret-cell::before { height: 1px;   background: var(--string-1); }
+  .open-cell { position: relative; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .open-cell::before { content: ''; position: absolute; right: 0; left: 50%; top: 50%; transform: translateY(-50%); z-index: 1; }
+  [data-si="0"] .open-cell::before { height: 3px;   background: var(--string-6); }
+  [data-si="1"] .open-cell::before { height: 2.5px; background: #c0a858; }
+  [data-si="2"] .open-cell::before { height: 2px;   background: #c8b060; }
+  [data-si="3"] .open-cell::before { height: 1.5px; background: #ccc070; }
+  [data-si="4"] .open-cell::before { height: 1.5px; background: var(--string-1); }
+  [data-si="5"] .open-cell::before { height: 1px;   background: var(--string-1); }
+  .note-dot {
+    position: relative; z-index: 3; width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: -0.01em;
+    transition: background 0.12s, box-shadow 0.12s, transform 0.1s; user-select: none;
+  }
+  .fret-cell:hover .note-dot, .open-cell:hover .note-dot {
+    background: rgba(232,152,32,0.25); color: var(--accent); transform: scale(1.1);
+  }
+  .note-dot.show { background: var(--accent); color: #fff; box-shadow: 0 0 10px rgba(232,152,32,0.55); }
+  .note-dot.highlighted { background: var(--highlight); color: #fff; box-shadow: 0 0 14px rgba(58,128,200,0.7); animation: pulse 1.2s ease-in-out infinite; }
+  .note-dot.correct-ans { background: var(--correct); color: #fff; box-shadow: 0 0 12px rgba(74,158,80,0.65); animation: pop 0.25s ease-out; }
+  .note-dot.wrong-ans { background: var(--wrong); color: #fff; animation: shake 0.3s ease-out; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(58,128,200,0.5); transform: scale(1); }
+    50%       { box-shadow: 0 0 22px rgba(58,128,200,0.9); transform: scale(1.08); }
+  }
+  @keyframes pop { 0% { transform: scale(0.8); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+  @keyframes shake { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-5px); } 70% { transform: translateX(5px); } }
+
+  .choices { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 12px 16px 4px; max-width: 480px; margin: 0 auto; }
+  .choice-btn {
+    padding: 10px 18px; min-width: 64px; border-radius: 10px; border: 2px solid var(--fg-dim);
+    background: var(--card); color: var(--fg); font-family: inherit; font-size: 1rem;
+    font-weight: 700; cursor: pointer; transition: all 0.1s;
+  }
+  .choice-btn:hover:not(:disabled) { border-color: var(--accent); background: rgba(232,152,32,0.12); transform: scale(1.05); }
+  .choice-btn.correct { background: var(--correct); border-color: var(--correct); color: #fff; }
+  .choice-btn.wrong-pick { background: var(--wrong); border-color: var(--wrong); color: #fff; }
+  .choice-btn:disabled { cursor: default; }
+
+  .next-btn {
+    display: none; margin: 10px auto 0; padding: 11px 36px; border-radius: 10px; border: none;
+    background: var(--accent); color: #fff; font-family: inherit; font-size: 0.95rem;
+    font-weight: 700; cursor: pointer; transition: opacity 0.1s, transform 0.1s;
+  }
+  .next-btn:hover { opacity: 0.85; transform: scale(1.03); }
+  .next-btn.visible { display: block; }
+
+  @media (max-width: 480px) {
+    h1 { font-size: 1.25rem; }
+    .q-note { font-size: 2.2rem; }
+    .choice-btn { font-size: 0.92rem; padding: 9px 14px; }
+  }
+</style>
+
+<header>
+  <h1>OnPush</h1>
+  <p class="subtitle">押さえた場所から出る音を覚えよう</p>
+</header>
+
+<div class="tabs" id="tabs">
+  <button class="tab active" data-mode="explore">探索</button>
+  <button class="tab" data-mode="fret-quiz">フレット→音名</button>
+  <button class="tab" data-mode="note-quiz">音名→フレット</button>
+</div>
+
+<div class="score-bar" id="scoreBar" hidden>
+  <div class="score-item"><span class="score-lbl">正解</span><span class="score-val good" id="scoreOk">0</span></div>
+  <div class="score-item"><span class="score-lbl">不正解</span><span class="score-val bad" id="scoreNg">0</span></div>
+  <div class="score-item"><span class="score-lbl">合計</span><span class="score-val neu" id="scoreAll">0</span></div>
+</div>
+
+<div id="promptArea"></div>
+
+<!-- Board A -->
+<div id="a-section">
+  <div class="board-tag-row" id="a-tag-row">
+    <span class="board-tag tag-a">A</span>
+    <div class="board-tag-line"></div>
+  </div>
+  <div id="a-controls"></div>
+  <div class="fb-wrapper"><div class="fretboard" id="a-fretboard"></div></div>
+  <div class="note-legend" id="a-legend"></div>
+</div>
+
+<div id="choicesArea"></div>
+<button class="next-btn" id="nextBtn">次の問題 →</button>
+
+<!-- Board B -->
+<hr class="board-divider" id="boardDivider">
+<div id="b-section">
+  <div class="board-tag-row">
+    <span class="board-tag tag-b">B</span>
+    <div class="board-tag-line"></div>
+    <button class="board-toggle-btn is-off" id="bToggleBtn" onclick="toggleBoardB()">OFF</button>
+  </div>
+  <div id="b-body" style="display:none">
+    <div id="b-controls"></div>
+    <div class="fb-wrapper"><div class="fretboard" id="b-fretboard"></div></div>
+    <div class="note-legend" id="b-legend"></div>
+  </div>
+</div>
+
+<script>
+const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const CHORD_FORMS = {
+  'C':[-1,3,2,0,1,0],'D':[-1,-1,0,2,3,2],'E':[0,2,2,1,0,0],
+  'F':[1,3,3,2,1,1],'G':[3,2,0,0,0,3],'A':[-1,0,2,2,2,0],'B':[-1,2,4,4,4,2],
+  'Cm':[-1,3,5,5,4,3],'Dm':[-1,-1,0,2,3,1],'Em':[0,2,2,0,0,0],
+  'Fm':[1,3,3,1,1,1],'Gm':[3,5,5,3,3,3],'Am':[-1,0,2,2,1,0],'Bm':[-1,2,4,4,3,2],
+  'C7':[-1,3,2,3,1,0],'D7':[-1,-1,0,2,1,2],'E7':[0,2,0,1,0,0],
+  'F7':[1,3,1,2,1,1],'G7':[3,2,0,0,0,1],'A7':[-1,0,2,0,2,0],'B7':[-1,2,1,2,0,2],
+  'Cmaj7':[-1,3,2,0,0,0],'Dmaj7':[-1,-1,0,2,2,2],'Emaj7':[0,2,1,1,0,0],
+  'Fmaj7':[-1,-1,3,2,1,0],'Gmaj7':[3,2,0,0,0,2],'Amaj7':[-1,0,2,1,2,0],'Bmaj7':[-1,2,4,3,4,2],
+  'Cm7':[-1,3,5,3,4,3],'Dm7':[-1,-1,0,2,1,1],'Em7':[0,2,0,0,0,0],
+  'Fm7':[1,3,1,1,1,1],'Gm7':[3,5,3,3,3,3],'Am7':[-1,0,2,0,1,0],'Bm7':[-1,2,4,2,3,2],
+  'E5':[0,2,2,-1,-1,-1],'F5':[1,3,3,-1,-1,-1],'G5':[3,5,5,-1,-1,-1],
+  'A5':[-1,0,2,2,-1,-1],'B5':[-1,2,4,4,-1,-1],'C5':[-1,3,5,5,-1,-1],'D5':[-1,-1,0,2,3,-1],
+  'Csus2':[-1,3,0,0,3,3],'Dsus2':[-1,-1,0,2,3,0],'Esus2':[0,2,4,4,0,0],
+  'Fsus2':[1,3,3,0,1,1],'Gsus2':[3,0,0,0,3,3],'Asus2':[-1,0,2,2,0,0],'Bsus2':[-1,2,4,4,2,2],
+  'Csus4':[-1,3,3,0,1,1],'Dsus4':[-1,-1,0,2,3,3],'Esus4':[0,2,2,2,0,0],
+  'Fsus4':[1,3,3,3,1,1],'Gsus4':[3,3,0,0,1,3],'Asus4':[-1,0,2,2,3,0],'Bsus4':[-1,2,4,4,5,2],
+  'Cadd9':[-1,3,2,0,3,0],'Dadd9':[-1,-1,0,2,3,2],'Eadd9':[0,2,2,1,0,2],
+  'Gadd9':[3,2,0,2,0,3],'Aadd9':[-1,0,2,4,2,0],
+  'Cdim':[-1,3,4,2,4,2],'Ddim':[-1,-1,0,1,0,1],'Edim':[0,1,2,0,2,0],
+  'Adim':[-1,0,1,2,1,2],'Bdim':[-1,2,3,1,3,1],
+  'Caug':[-1,3,2,1,1,0],'Daug':[-1,-1,0,3,3,2],'Eaug':[0,3,2,1,1,0],
+  'Gaug':[3,2,1,0,0,3],'Aaug':[-1,0,3,2,2,1],'Baug':[-1,2,1,0,0,3],
+};
+const CHORD_CATEGORIES = {
+  'M':   ['C','D','E','F','G','A','B'],
+  'm':   ['Cm','Dm','Em','Fm','Gm','Am','Bm'],
+  '7':   ['C7','D7','E7','F7','G7','A7','B7'],
+  'M7':  ['Cmaj7','Dmaj7','Emaj7','Fmaj7','Gmaj7','Amaj7','Bmaj7'],
+  'm7':  ['Cm7','Dm7','Em7','Fm7','Gm7','Am7','Bm7'],
+  'P5':  ['E5','F5','G5','A5','B5','C5','D5'],
+  'sus2':['Csus2','Dsus2','Esus2','Fsus2','Gsus2','Asus2','Bsus2'],
+  'sus4':['Csus4','Dsus4','Esus4','Fsus4','Gsus4','Asus4','Bsus4'],
+  'add9':['Cadd9','Dadd9','Eadd9','Gadd9','Aadd9'],
+  'dim': ['Cdim','Ddim','Edim','Adim','Bdim'],
+  'aug': ['Caug','Daug','Eaug','Gaug','Aaug','Baug'],
+};
+const SCALES = {
+  'メジャー':[0,2,4,5,7,9,11],'マイナー':[0,2,3,5,7,8,10],
+  'ペンタ（メジャー）':[0,2,4,7,9],'ペンタ（マイナー）':[0,3,5,7,10],
+  'ブルース':[0,3,5,6,7,10],'ドリアン':[0,2,3,5,7,9,10],
+  'ミクソリディアン':[0,2,4,5,7,9,10],'フリジアン':[0,1,3,5,7,8,10],
+};
+const NOTE_COLORS = [
+  '#ff4a4a','#ff7830','#ffb020','#c8d020','#72c820','#20b850',
+  '#18b8a8','#2890e8','#6055ff','#a038ff','#d825b8','#ff3080',
+];
+const STRINGS = [
+  {name:'E',ni:4, freq:82.41 },
+  {name:'A',ni:9, freq:110.00},
+  {name:'D',ni:2, freq:146.83},
+  {name:'G',ni:7, freq:196.00},
+  {name:'B',ni:11,freq:246.94},
+  {name:'E',ni:4, freq:329.63},
+];
+const NUM_FRETS = 13;
+
+// Global state
+let mode = 'explore';
+let quiz = null;
+let score = { ok: 0, ng: 0 };
+let audioCtx = null;
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function playNote(freq) {
+  const ctx = ensureAudio();
+  const now = ctx.currentTime;
+  [[1,0.5,'sawtooth'],[2,0.25,'sawtooth'],[3,0.1,'sine'],[0.5,0.1,'sine']].forEach(([h,g,type]) => {
+    const osc = ctx.createOscillator(), gain = ctx.createGain(), lpf = ctx.createBiquadFilter();
+    lpf.type = 'lowpass'; lpf.frequency.value = 3200;
+    osc.type = type; osc.frequency.value = freq * h;
+    gain.gain.setValueAtTime(g * 0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 2);
+    osc.connect(lpf); lpf.connect(gain); gain.connect(ctx.destination);
+    osc.start(now); osc.stop(now + 2);
+  });
+}
+function noteFreq(si, fret)  { return STRINGS[si].freq * Math.pow(2, fret / 12); }
+function noteName(si, fret)  { return NOTES[(STRINGS[si].ni + fret) % 12]; }
+function noteColor(si, fret) { return NOTE_COLORS[(STRINGS[si].ni + fret) % 12]; }
+function strumChord(name) {
+  const frets = CHORD_FORMS[name]; if (!frets) return; ensureAudio();
+  frets.forEach((fret, si) => { if (fret < 0) return; setTimeout(() => playNote(noteFreq(si, fret)), si * 40); });
+}
+
+// ===== Board factory =====
+function makeBoard(bid) {
+  let bShowAll = false, bScaleActive = false, bSelectedChord = null;
+
+  const p  = id => `${bid}-${id}`;
+  const el = id => document.getElementById(p(id));
+  const getDot = (si, fret) => document.getElementById(p(`dot-${si}-${fret}`));
+
+  function showDot(si, fret, text, cls) {
+    const d = getDot(si, fret); if (!d) return;
+    d.className = `note-dot ${cls}`; d.textContent = text;
+    if (['show','correct-ans','scale-note','scale-root'].includes(cls)) {
+      const col = noteColor(si, fret);
+      d.style.background = col; d.style.boxShadow = `0 0 10px ${col}99`; d.style.color = '#fff';
+    } else { d.style.background = ''; d.style.boxShadow = ''; d.style.color = ''; }
+  }
+  function clearDot(si, fret) {
+    const d = getDot(si, fret); if (!d) return;
+    d.className = 'note-dot'; d.textContent = '';
+    d.style.background = ''; d.style.boxShadow = ''; d.style.color = ''; d.style.border = '';
+  }
+  function clearAll() { STRINGS.forEach((_,si) => { for (let f=0;f<NUM_FRETS;f++) clearDot(si,f); }); }
+
+  function resetStringLabels() {
+    STRINGS.forEach((str, si) => {
+      const lbl = el(`str-lbl-${si}`); if (!lbl) return;
+      lbl.textContent = `${si===0?6:6-si}弦\n${str.name}`; lbl.classList.remove('muted');
+    });
+  }
+
+  function updateLegend(scaleSet, rootNi) {
+    NOTES.forEach((_, ni) => {
+      const badge = el(`legend-${ni}`); if (!badge) return;
+      if (scaleSet === null) { badge.classList.remove('dimmed','scale-root-badge'); }
+      else if (scaleSet.has(ni)) { badge.classList.remove('dimmed'); badge.classList.toggle('scale-root-badge', ni===rootNi); }
+      else { badge.classList.add('dimmed'); badge.classList.remove('scale-root-badge'); }
+    });
+  }
+
+  function applyScale() {
+    const rootNi = parseInt(el('scaleRoot').value);
+    const intervals = SCALES[el('scaleType').value];
+    const scaleSet = new Set(intervals.map(i => (rootNi + i) % 12));
+    STRINGS.forEach((str, si) => {
+      for (let f=0;f<NUM_FRETS;f++) {
+        const ni = (str.ni + f) % 12;
+        if (scaleSet.has(ni)) showDot(si,f,noteName(si,f), ni===rootNi?'scale-root':'scale-note');
+        else clearDot(si,f);
+      }
+    });
+    updateLegend(scaleSet, rootNi);
+  }
+
+  function clearChord() {
+    bSelectedChord = null; clearAll(); resetStringLabels(); updateLegend(null,null);
+    document.querySelectorAll(`#${p('chord-btn-row')} .chord-btn`).forEach(b => b.classList.remove('selected'));
+  }
+
+  function showChord(name) {
+    clearAll(); resetStringLabels(); strumChord(name);
+    if (bScaleActive) {
+      bScaleActive = false;
+      const sb = el('scaleToggleBtn');
+      if (sb) { sb.textContent = '表示'; sb.classList.remove('active'); }
+    }
+    bSelectedChord = name;
+    const frets = CHORD_FORMS[name]; if (!frets) return;
+    const noteSet = new Set();
+    frets.forEach((fret,si) => { if (fret>=0) noteSet.add((STRINGS[si].ni+fret)%12); });
+    updateLegend(noteSet, null);
+    frets.forEach((fret,si) => {
+      const lbl = el(`str-lbl-${si}`);
+      if (fret===-1) { if (lbl) { lbl.textContent=`${si===0?6:6-si}弦\n×`; lbl.classList.add('muted'); } }
+      else { showDot(si,fret,noteName(si,fret),'show'); }
+    });
+    document.querySelectorAll(`#${p('chord-btn-row')} .chord-btn`).forEach(b => b.classList.toggle('selected', b.dataset.chord===name));
+  }
+
+  function renderChordBtns(cat) {
+    document.querySelectorAll(`#${p('chord-cat-row')} .chord-cat-btn`).forEach(b => b.classList.toggle('active', b.dataset.cat===cat));
+    const row = el('chord-btn-row'); if (!row) return;
+    row.innerHTML = '';
+    CHORD_CATEGORIES[cat].forEach(name => {
+      const btn = document.createElement('button');
+      btn.className = 'chord-btn' + (bSelectedChord===name?' selected':'');
+      btn.dataset.chord = name; btn.textContent = name;
+      btn.onclick = () => { if (bSelectedChord===name) clearChord(); else showChord(name); };
+      row.appendChild(btn);
+    });
+  }
+
+  function toggleScale() {
+    bScaleActive = !bScaleActive;
+    const btn = el('scaleToggleBtn');
+    if (bScaleActive) {
+      btn.textContent = '消す'; btn.classList.add('active');
+      bShowAll = false;
+      const tab = el('toggleAllBtn');
+      if (tab) { tab.textContent='全部見る'; tab.classList.remove('active'); }
+      clearChord(); applyScale();
+    } else {
+      btn.textContent = '表示'; btn.classList.remove('active');
+      clearAll(); resetStringLabels(); updateLegend(null,null);
+    }
+  }
+
+  function applyShowAll(val) {
+    bShowAll = val;
+    if (val) {
+      bScaleActive = false;
+      const sb = el('scaleToggleBtn');
+      if (sb) { sb.textContent='表示'; sb.classList.remove('active'); }
+      clearChord(); updateLegend(null,null);
+    }
+    const btn = el('toggleAllBtn'); if (!btn) return;
+    if (bShowAll) {
+      btn.textContent = '全消し'; btn.classList.add('active');
+      STRINGS.forEach((_,si) => { for (let f=0;f<NUM_FRETS;f++) showDot(si,f,noteName(si,f),'show'); });
+    } else {
+      btn.textContent = '全部見る'; btn.classList.remove('active'); clearAll();
+    }
+  }
+
+  function onCellClick(si, fret) {
+    if (bid==='a' && mode==='note-quiz') {
+      if (!quiz || quiz.answered) return;
+      const ok = quiz.correctPositions.some(pos => pos.si===si && pos.f===fret);
+      quiz.answered = true;
+      showDot(si,fret,noteName(si,fret), ok?'correct-ans':'wrong-ans');
+      playNote(noteFreq(si,fret));
+      quiz.correctPositions.forEach(pos => {
+        if (pos.si===si && pos.f===fret) return;
+        showDot(pos.si,pos.f,quiz.name,'correct-ans');
+      });
+      if (ok) score.ok++; else score.ng++;
+      updateScore();
+      document.getElementById('nextBtn').classList.add('visible');
+      return;
+    }
+    if (bid==='a' && mode==='fret-quiz') return;
+    if (bShowAll || bScaleActive) { playNote(noteFreq(si,fret)); return; }
+    const dot = getDot(si,fret);
+    if (dot && dot.classList.contains('show')) clearDot(si,fret);
+    else { showDot(si,fret,noteName(si,fret),'show'); playNote(noteFreq(si,fret)); }
+  }
+
+  function buildFretboard() {
+    const fb = el('fretboard'); fb.innerHTML = '';
+    const numRow = document.createElement('div');
+    numRow.className = 'fb-fret-nums';
+    numRow.innerHTML = '<div class="fret-num"></div><div class="fret-num" style="font-size:0.6rem;opacity:0.5">開</div>';
+    for (let f=1;f<NUM_FRETS;f++) {
+      const d = document.createElement('div'); d.className='fret-num'; d.textContent=f; numRow.appendChild(d);
+    }
+    fb.appendChild(numRow);
+
+    const markerRow = document.createElement('div');
+    markerRow.className = 'fb-pos-markers';
+    markerRow.innerHTML = '<div class="pos-cell"></div><div class="pos-cell"></div>';
+    for (let f=1;f<NUM_FRETS;f++) {
+      const d = document.createElement('div'); d.className='pos-cell';
+      if ([5,7,9,12].includes(f)) {
+        if (f===12) { const w=document.createElement('div'); w.className='pos-dot-double'; w.innerHTML='<div class="pos-dot"></div><div class="pos-dot"></div>'; d.appendChild(w); }
+        else { const dot=document.createElement('div'); dot.className='pos-dot'; d.appendChild(dot); }
+      }
+      markerRow.appendChild(d);
+    }
+    fb.appendChild(markerRow);
+
+    const grid = document.createElement('div'); grid.className='fb-grid';
+    [5,4,3,2,1,0].forEach(si => {
+      const str = STRINGS[si];
+      const lbl = document.createElement('div');
+      lbl.className='str-label'; lbl.id=p(`str-lbl-${si}`); lbl.setAttribute('data-si',si);
+      lbl.textContent=`${si===0?6:6-si}弦\n${str.name}`; lbl.style.whiteSpace='pre'; lbl.style.lineHeight='1.2'; lbl.style.fontSize='0.65rem';
+      grid.appendChild(lbl);
+
+      const nutCol = document.createElement('div');
+      nutCol.className='nut-col open-cell'; nutCol.setAttribute('data-si',si);
+      const openDot = document.createElement('div'); openDot.className='note-dot'; openDot.id=p(`dot-${si}-0`);
+      nutCol.appendChild(openDot); nutCol.addEventListener('click', ()=>onCellClick(si,0)); grid.appendChild(nutCol);
+
+      for (let f=1;f<NUM_FRETS;f++) {
+        const cell = document.createElement('div'); cell.className='fret-cell'; cell.setAttribute('data-si',si);
+        const dot = document.createElement('div'); dot.className='note-dot'; dot.id=p(`dot-${si}-${f}`);
+        cell.appendChild(dot); cell.addEventListener('click', ()=>onCellClick(si,f)); grid.appendChild(cell);
+      }
+    });
+    fb.appendChild(grid);
+  }
+
+  function buildLegend() {
+    const legendEl = el('legend'); legendEl.innerHTML='';
+    NOTES.forEach((note,ni) => {
+      const badge = document.createElement('div');
+      badge.className='legend-badge'; badge.id=p(`legend-${ni}`);
+      badge.textContent=note; badge.style.background=NOTE_COLORS[ni]; legendEl.appendChild(badge);
+    });
+  }
+
+  function renderExploreControls(container) {
+    container.innerHTML=''; bShowAll=false; bScaleActive=false; bSelectedChord=null;
+
+    const ctrlDiv = document.createElement('div'); ctrlDiv.className='explore-controls';
+    const taBtn = document.createElement('button'); taBtn.className='toggle-all-btn'; taBtn.id=p('toggleAllBtn'); taBtn.textContent='全部見る'; taBtn.onclick=()=>applyShowAll(!bShowAll); ctrlDiv.appendChild(taBtn);
+    const clBtn = document.createElement('button'); clBtn.className='clear-btn'; clBtn.textContent='全消し'; clBtn.onclick=()=>{applyShowAll(false);clearChord();clearAll();}; ctrlDiv.appendChild(clBtn);
+    container.appendChild(ctrlDiv);
+
+    const sp = document.createElement('div'); sp.className='scale-panel';
+    sp.innerHTML = `<div class="scale-panel-title">スケール表示</div><div class="scale-row">
+      <span class="scale-lbl">キー</span>
+      <select class="scale-select" id="${p('scaleRoot')}">${NOTES.map((n,i)=>`<option value="${i}">${n}</option>`).join('')}</select>
+      <span class="scale-lbl">スケール</span>
+      <select class="scale-select" id="${p('scaleType')}">${Object.keys(SCALES).map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
+      <button class="scale-toggle-btn" id="${p('scaleToggleBtn')}">表示</button>
+    </div>`;
+    container.appendChild(sp);
+    el('scaleRoot').addEventListener('change', ()=>{ if(bScaleActive) applyScale(); });
+    el('scaleType').addEventListener('change', ()=>{ if(bScaleActive) applyScale(); });
+    el('scaleToggleBtn').addEventListener('click', ()=>toggleScale());
+
+    const cp = document.createElement('div'); cp.className='chord-panel';
+    const ct = document.createElement('div'); ct.className='scale-panel-title'; ct.textContent='コード表示'; cp.appendChild(ct);
+    const cr = document.createElement('div'); cr.className='chord-cat-row'; cr.id=p('chord-cat-row');
+    Object.keys(CHORD_CATEGORIES).forEach(cat => {
+      const btn = document.createElement('button'); btn.className='chord-cat-btn'+(cat==='M'?' active':'');
+      btn.dataset.cat=cat; btn.textContent=cat; btn.onclick=()=>renderChordBtns(cat); cr.appendChild(btn);
+    });
+    cp.appendChild(cr);
+    const br = document.createElement('div'); br.className='chord-btn-row'; br.id=p('chord-btn-row'); cp.appendChild(br);
+    container.appendChild(cp);
+    renderChordBtns('M');
+  }
+
+  return { showDot, clearDot, clearAll, resetStringLabels, updateLegend, buildFretboard, buildLegend, renderExploreControls, getDot };
+}
+
+const boardA = makeBoard('a');
+const boardB = makeBoard('b');
+
+// ===== Score =====
+function updateScore() {
+  document.getElementById('scoreOk').textContent  = score.ok;
+  document.getElementById('scoreNg').textContent  = score.ng;
+  document.getElementById('scoreAll').textContent = score.ok + score.ng;
+}
+
+// ===== Quiz (board A) =====
+function startFretQuiz() {
+  boardA.clearAll();
+  document.getElementById('nextBtn').classList.remove('visible');
+  document.getElementById('choicesArea').innerHTML = '';
+  const si=Math.floor(Math.random()*6), fret=Math.floor(Math.random()*NUM_FRETS);
+  const correct=noteName(si,fret);
+  quiz={type:'fret',si,fret,correct,answered:false};
+  boardA.showDot(si,fret,'','highlighted');
+  document.getElementById('promptArea').innerHTML=`
+    <div class="quiz-prompt">
+      <div class="q-label">このフレットの音名は？</div>
+      <div class="q-sub">${si===0?6:6-si}弦 / ${fret===0?'開放弦':fret+'フレット'}</div>
+    </div>`;
+  const wrong=NOTES.filter(n=>n!==correct).sort(()=>Math.random()-0.5).slice(0,3);
+  const choices=[correct,...wrong].sort(()=>Math.random()-0.5);
+  const wrap=document.createElement('div'); wrap.className='choices';
+  choices.forEach(note=>{
+    const btn=document.createElement('button'); btn.className='choice-btn'; btn.textContent=note;
+    btn.onclick=()=>answerFretQuiz(note,btn); wrap.appendChild(btn);
+  });
+  document.getElementById('choicesArea').appendChild(wrap);
+}
+
+function answerFretQuiz(chosen,btn) {
+  if(quiz.answered) return; quiz.answered=true;
+  const ok=chosen===quiz.correct;
+  document.querySelectorAll('.choice-btn').forEach(b=>{
+    b.disabled=true;
+    if(b.textContent===quiz.correct) b.classList.add('correct');
+    else if(b===btn&&!ok) b.classList.add('wrong-pick');
+  });
+  boardA.clearDot(quiz.si,quiz.fret);
+  boardA.showDot(quiz.si,quiz.fret,quiz.correct,ok?'correct-ans':'wrong-ans');
+  playNote(noteFreq(quiz.si,quiz.fret));
+  if(ok) score.ok++; else score.ng++;
+  updateScore(); document.getElementById('nextBtn').classList.add('visible');
+}
+
+function startNoteQuiz() {
+  boardA.clearAll();
+  document.getElementById('nextBtn').classList.remove('visible');
+  document.getElementById('choicesArea').innerHTML='';
+  const ni=Math.floor(Math.random()*12), name=NOTES[ni];
+  const correctPositions=[];
+  STRINGS.forEach((str,si)=>{ for(let f=0;f<NUM_FRETS;f++) if((str.ni+f)%12===ni) correctPositions.push({si,f}); });
+  quiz={type:'note',ni,name,correctPositions,answered:false};
+  document.getElementById('promptArea').innerHTML=`
+    <div class="quiz-prompt">
+      <div class="q-label">この音が出る場所をクリック！</div>
+      <div class="q-note">${name}</div>
+      <div class="q-sub">どれか1か所でもOK</div>
+    </div>`;
+}
+
+function nextQuestion() {
+  if(mode==='fret-quiz') startFretQuiz();
+  else if(mode==='note-quiz') startNoteQuiz();
+}
+
+// ===== Mode switching =====
+function setMode(m) {
+  mode=m; boardA.clearAll();
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.mode===m));
+  const scoreBar=document.getElementById('scoreBar');
+  const nextBtn=document.getElementById('nextBtn');
+  const bSection=document.getElementById('b-section');
+  const bDivider=document.getElementById('boardDivider');
+  const aTagRow=document.getElementById('a-tag-row');
+  nextBtn.classList.remove('visible');
+
+  if(m==='explore') {
+    scoreBar.hidden=true;
+    document.getElementById('promptArea').innerHTML='<p class="explore-hint">クリックで音名と音が出るよ（もう一度で消える）</p>';
+    aTagRow.hidden=false; bSection.hidden=false; bDivider.hidden=false;
+    boardA.renderExploreControls(document.getElementById('a-controls'));
+    boardA.clearAll(); boardA.resetStringLabels(); boardA.updateLegend(null,null);
+    boardB.renderExploreControls(document.getElementById('b-controls'));
+    boardB.clearAll(); boardB.resetStringLabels(); boardB.updateLegend(null,null);
+    document.getElementById('choicesArea').innerHTML='';
+  } else {
+    scoreBar.hidden=false;
+    aTagRow.hidden=true; bSection.hidden=true; bDivider.hidden=true;
+    document.getElementById('a-controls').innerHTML='';
+    score={ok:0,ng:0}; boardA.resetStringLabels(); boardA.updateLegend(null,null);
+    updateScore(); quiz=null; nextQuestion();
+  }
+}
+
+// ===== Board B toggle =====
+function toggleBoardB() {
+  const body = document.getElementById('b-body');
+  const btn  = document.getElementById('bToggleBtn');
+  const isOn = body.style.display !== 'none';
+  body.style.display = isOn ? 'none' : '';
+  btn.textContent = isOn ? 'OFF' : 'ON';
+  btn.classList.toggle('is-off', isOn);
+}
+
+// ===== Init =====
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>setMode(t.dataset.mode)));
+document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+boardA.buildFretboard(); boardA.buildLegend();
+boardB.buildFretboard(); boardB.buildLegend();
+setMode('explore');
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
