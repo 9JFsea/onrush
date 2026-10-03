@@ -1,4 +1,4 @@
-const CACHE = 'onpush-v3';
+const CACHE = 'onpush-v4';
 const ASSETS = [
   './',
   './index.html',
