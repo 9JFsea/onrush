@@ -777,6 +777,7 @@ function toggleBoardB() {
   body.style.display = isOn ? 'none' : '';
   btn.textContent = isOn ? 'OFF' : 'ON';
   btn.classList.toggle('is-off', isOn);
+  if (!isOn) setTimeout(scaleFretboards, 30);
 }
 
 // ===== Init =====
@@ -789,4 +790,20 @@ setMode('explore');
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
+
+// ===== 指板スケール（モバイル対応） =====
+function scaleFretboards() {
+  document.querySelectorAll('.fretboard').forEach(fb => {
+    const wrapper = fb.closest('.fb-wrapper');
+    if (!wrapper) return;
+    const available = wrapper.clientWidth - 32;
+    if (available < 720) {
+      fb.style.zoom = (available / 720).toFixed(3);
+    } else {
+      fb.style.zoom = '';
+    }
+  });
+}
+window.addEventListener('resize', scaleFretboards);
+setTimeout(scaleFretboards, 50);
 </script>
