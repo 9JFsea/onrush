@@ -355,6 +355,7 @@
 
 <script>
 const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const INTERVAL_NAMES = ['1','♭2','2','♭3','3','4','♭5','5','♭6','6','♭7','7'];
 const CHORD_FORMS = {
   'C':[-1,3,2,0,1,0],'D':[-1,-1,0,2,3,2],'E':[0,2,2,1,0,0],
   'F':[1,3,3,2,1,1],'G':[3,2,0,0,0,3],'A':[-1,0,2,2,2,0],'B':[-1,2,4,4,4,2],
@@ -455,9 +456,13 @@ function makeBoard(bid) {
   function showDot(si, fret, text, cls) {
     const d = getDot(si, fret); if (!d) return;
     d.className = `note-dot ${cls}`; d.textContent = text;
-    if (['show','correct-ans','scale-note','scale-root'].includes(cls)) {
+    if (['show','correct-ans','scale-note','scale-root','chord-in-scale'].includes(cls)) {
       const col = noteColor(si, fret);
       d.style.background = col; d.style.boxShadow = `0 0 10px ${col}99`; d.style.color = '#fff';
+    } else if (cls === 'chord-out-scale') {
+      d.style.background = '#c84040'; d.style.boxShadow = '0 0 8px rgba(200,64,64,0.55)'; d.style.color = '#fff';
+    } else if (cls === 'scale-dim') {
+      d.style.background = 'rgba(255,255,255,0.07)'; d.style.boxShadow = ''; d.style.color = 'rgba(255,255,255,0.28)';
     } else { d.style.background = ''; d.style.boxShadow = ''; d.style.color = ''; }
   }
   function clearDot(si, fret) {
@@ -483,43 +488,71 @@ function makeBoard(bid) {
     });
   }
 
-  function applyScale() {
-    const rootNi = parseInt(el('scaleRoot').value);
-    const intervals = SCALES[el('scaleType').value];
-    const scaleSet = new Set(intervals.map(i => (rootNi + i) % 12));
-    STRINGS.forEach((str, si) => {
-      for (let f=0;f<NUM_FRETS;f++) {
-        const ni = (str.ni + f) % 12;
-        if (scaleSet.has(ni)) showDot(si,f,noteName(si,f), ni===rootNi?'scale-root':'scale-note');
-        else clearDot(si,f);
-      }
-    });
-    updateLegend(scaleSet, rootNi);
+  function redraw() {
+    clearAll(); resetStringLabels();
+    if (!bScaleActive && !bSelectedChord) { updateLegend(null, null); return; }
+
+    const rootNi = bScaleActive ? parseInt(el('scaleRoot').value) : null;
+    const scaleSet = bScaleActive
+      ? new Set(SCALES[el('scaleType').value].map(i => (rootNi + i) % 12))
+      : null;
+
+    let chordNoteSet = null;
+    if (bSelectedChord) {
+      const frets = CHORD_FORMS[bSelectedChord] || [];
+      chordNoteSet = new Set();
+      frets.forEach((fret, si) => { if (fret >= 0) chordNoteSet.add((STRINGS[si].ni + fret) % 12); });
+      frets.forEach((fret, si) => {
+        const lbl = el(`str-lbl-${si}`);
+        if (fret === -1 && lbl) { lbl.textContent = `${si===0?6:6-si}弦\n×`; lbl.classList.add('muted'); }
+      });
+    }
+
+    if (bScaleActive && bSelectedChord) {
+      STRINGS.forEach((str, si) => {
+        for (let f = 0; f < NUM_FRETS; f++) {
+          const ni = (str.ni + f) % 12;
+          const inChord = chordNoteSet.has(ni);
+          const inScale = scaleSet.has(ni);
+          if (inChord) {
+            const deg = INTERVAL_NAMES[(ni - rootNi + 12) % 12];
+            showDot(si, f, deg, inScale ? 'chord-in-scale' : 'chord-out-scale');
+          } else if (inScale) {
+            showDot(si, f, noteName(si, f), 'scale-dim');
+          }
+        }
+      });
+      updateLegend(scaleSet, rootNi);
+    } else if (bScaleActive) {
+      STRINGS.forEach((str, si) => {
+        for (let f = 0; f < NUM_FRETS; f++) {
+          const ni = (str.ni + f) % 12;
+          if (scaleSet.has(ni)) showDot(si, f, noteName(si, f), ni === rootNi ? 'scale-root' : 'scale-note');
+        }
+      });
+      updateLegend(scaleSet, rootNi);
+    } else {
+      const frets = CHORD_FORMS[bSelectedChord] || [];
+      frets.forEach((fret, si) => {
+        if (fret >= 0) showDot(si, fret, noteName(si, fret), 'show');
+      });
+      updateLegend(chordNoteSet, null);
+    }
   }
 
+  function applyScale() { redraw(); }
+
   function clearChord() {
-    bSelectedChord = null; clearAll(); resetStringLabels(); updateLegend(null,null);
+    bSelectedChord = null;
     document.querySelectorAll(`#${p('chord-btn-row')} .chord-btn`).forEach(b => b.classList.remove('selected'));
+    redraw();
   }
 
   function showChord(name) {
-    clearAll(); resetStringLabels(); strumChord(name);
-    if (bScaleActive) {
-      bScaleActive = false;
-      const sb = el('scaleToggleBtn');
-      if (sb) { sb.textContent = '表示'; sb.classList.remove('active'); }
-    }
+    strumChord(name);
     bSelectedChord = name;
-    const frets = CHORD_FORMS[name]; if (!frets) return;
-    const noteSet = new Set();
-    frets.forEach((fret,si) => { if (fret>=0) noteSet.add((STRINGS[si].ni+fret)%12); });
-    updateLegend(noteSet, null);
-    frets.forEach((fret,si) => {
-      const lbl = el(`str-lbl-${si}`);
-      if (fret===-1) { if (lbl) { lbl.textContent=`${si===0?6:6-si}弦\n×`; lbl.classList.add('muted'); } }
-      else { showDot(si,fret,noteName(si,fret),'show'); }
-    });
-    document.querySelectorAll(`#${p('chord-btn-row')} .chord-btn`).forEach(b => b.classList.toggle('selected', b.dataset.chord===name));
+    document.querySelectorAll(`#${p('chord-btn-row')} .chord-btn`).forEach(b => b.classList.toggle('selected', b.dataset.chord === name));
+    redraw();
   }
 
   function renderChordBtns(cat) {
@@ -542,21 +575,22 @@ function makeBoard(bid) {
       btn.textContent = '消す'; btn.classList.add('active');
       bShowAll = false;
       const tab = el('toggleAllBtn');
-      if (tab) { tab.textContent='全部見る'; tab.classList.remove('active'); }
-      clearChord(); applyScale();
+      if (tab) { tab.textContent = '全部見る'; tab.classList.remove('active'); }
     } else {
       btn.textContent = '表示'; btn.classList.remove('active');
-      clearAll(); resetStringLabels(); updateLegend(null,null);
     }
+    redraw();
   }
 
   function applyShowAll(val) {
     bShowAll = val;
     if (val) {
       bScaleActive = false;
+      bSelectedChord = null;
       const sb = el('scaleToggleBtn');
-      if (sb) { sb.textContent='表示'; sb.classList.remove('active'); }
-      clearChord(); updateLegend(null,null);
+      if (sb) { sb.textContent = '表示'; sb.classList.remove('active'); }
+      document.querySelectorAll(`#${p('chord-btn-row')} .chord-btn`).forEach(b => b.classList.remove('selected'));
+      updateLegend(null, null);
     }
     const btn = el('toggleAllBtn'); if (!btn) return;
     if (bShowAll) {
@@ -584,7 +618,7 @@ function makeBoard(bid) {
       return;
     }
     if (bid==='a' && mode==='fret-quiz') return;
-    if (bShowAll || bScaleActive) { playNote(noteFreq(si,fret)); return; }
+    if (bShowAll || bScaleActive || bSelectedChord) { playNote(noteFreq(si,fret)); return; }
     const dot = getDot(si,fret);
     if (dot && dot.classList.contains('show')) clearDot(si,fret);
     else { showDot(si,fret,noteName(si,fret),'show'); playNote(noteFreq(si,fret)); }
@@ -649,7 +683,13 @@ function makeBoard(bid) {
 
     const ctrlDiv = document.createElement('div'); ctrlDiv.className='explore-controls';
     const taBtn = document.createElement('button'); taBtn.className='toggle-all-btn'; taBtn.id=p('toggleAllBtn'); taBtn.textContent='全部見る'; taBtn.onclick=()=>applyShowAll(!bShowAll); ctrlDiv.appendChild(taBtn);
-    const clBtn = document.createElement('button'); clBtn.className='clear-btn'; clBtn.textContent='全消し'; clBtn.onclick=()=>{applyShowAll(false);clearChord();clearAll();}; ctrlDiv.appendChild(clBtn);
+    const clBtn = document.createElement('button'); clBtn.className='clear-btn'; clBtn.textContent='全消し'; clBtn.onclick=()=>{
+      bShowAll = false; bScaleActive = false; bSelectedChord = null;
+      const sb = el('scaleToggleBtn'); if (sb) { sb.textContent='表示'; sb.classList.remove('active'); }
+      const tab = el('toggleAllBtn'); if (tab) { tab.textContent='全部見る'; tab.classList.remove('active'); }
+      document.querySelectorAll(`#${p('chord-btn-row')} .chord-btn`).forEach(b=>b.classList.remove('selected'));
+      clearAll(); resetStringLabels(); updateLegend(null,null);
+    }; ctrlDiv.appendChild(clBtn);
     container.appendChild(ctrlDiv);
 
     const sp = document.createElement('div'); sp.className='scale-panel';
