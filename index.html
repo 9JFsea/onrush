@@ -278,7 +278,7 @@
   .next-btn:hover { opacity: 0.85; transform: scale(1.03); }
   .next-btn.visible { display: block; }
 
-  @media (max-width: 480px) {
+  @media (max-width: 600px) {
     h1 { font-size: 1.25rem; }
     .q-note { font-size: 2.2rem; }
     .choice-btn { font-size: 0.92rem; padding: 9px 14px; }
@@ -289,6 +289,17 @@
     .explore-controls { padding: 6px 10px 0; }
     .board-tag-row { padding: 10px 10px 2px; }
     .tabs { margin: 8px 10px 0; }
+
+    /* 指板をモバイル画面幅に収める */
+    .fretboard { min-width: 0; padding: 8px 4px; }
+    .fb-grid,
+    .fb-fret-nums,
+    .fb-pos-markers { grid-template-columns: 28px 28px repeat(12, 1fr); }
+    .fret-cell, .open-cell { height: 34px; }
+    .note-dot { width: 22px; height: 22px; font-size: 0.56rem; }
+    .fret-num { font-size: 0.65rem; }
+    .pos-dot { width: 5px; height: 5px; }
+    .fb-wrapper { padding: 8px 8px 0; }
   }
 </style>
 
@@ -775,7 +786,6 @@ function toggleBoardB() {
   body.style.display = isOn ? 'none' : '';
   btn.textContent = isOn ? 'OFF' : 'ON';
   btn.classList.toggle('is-off', isOn);
-  if (!isOn) setTimeout(scaleFretboards, 30);
 }
 
 // ===== Init =====
@@ -789,20 +799,4 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 
-// ===== 指板スケール（モバイル対応） =====
-function scaleFretboards() {
-  document.querySelectorAll('.fretboard').forEach(fb => {
-    fb.style.transform = '';
-    fb.style.marginBottom = '';
-    const available = window.innerWidth - 32;
-    if (available >= 720) return;
-    const scale = available / 720;
-    const h = fb.offsetHeight;
-    fb.style.transform = `scale(${scale})`;
-    fb.style.transformOrigin = 'top left';
-    fb.style.marginBottom = `${Math.round(h * (scale - 1))}px`;
-  });
-}
-window.addEventListener('resize', scaleFretboards);
-setTimeout(scaleFretboards, 100);
 </script>
