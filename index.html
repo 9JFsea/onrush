@@ -357,6 +357,7 @@
   .sketch-beat-dots { display: flex; gap: 8px; justify-content: center; padding: 6px 0; }
   .sketch-play-btn { width: 100%; font-size: 1rem; padding: 12px; }
   .sketch-memo { width: 100%; min-height: 100px; font-family: inherit; font-size: 0.88rem; background: var(--surface); border: 1.5px solid var(--fg-dim); border-radius: 8px; color: var(--fg); padding: 10px; resize: vertical; outline: none; box-sizing: border-box; }
+  .sketch-fretboard-wrap { border-radius: 10px; overflow: hidden; margin: 4px 0; }
   .sketch-save-row { display: flex; align-items: center; gap: 12px; }
   .sketch-saved-msg { font-size: 0.78rem; color: var(--accent); opacity: 0; transition: opacity 0.3s; }
   .sketch-saved-msg.show { opacity: 1; }
@@ -514,6 +515,10 @@
     <div class="sketch-custom-row" id="sketchCustomRow" hidden>
       <div class="sketch-custom-slots" id="sketchCustomSlots"></div>
       <button class="scale-toggle-btn" id="sketchAddChord">＋ コード追加</button>
+    </div>
+    <div class="sketch-fretboard-wrap">
+      <div class="fb-wrapper"><div class="fretboard" id="c-fretboard"></div></div>
+      <div class="note-legend" id="c-legend"></div>
     </div>
     <div class="sketch-section-label">テンポ</div>
     <div class="metro-bpm-row">
@@ -1114,11 +1119,12 @@ function makeBoard(bid) {
     }, 2500);
   }
 
-  return { showDot, clearDot, clearAll, resetStringLabels, updateLegend, buildFretboard, buildLegend, renderExploreControls, getDot, stopProgAuto, stopMetroAll };
+  return { showDot, clearDot, clearAll, resetStringLabels, updateLegend, buildFretboard, buildLegend, renderExploreControls, getDot, stopProgAuto, stopMetroAll, showChord, clearChord };
 }
 
 const boardA = makeBoard('a');
 const boardB = makeBoard('b');
+const boardC = makeBoard('c');
 
 // ===== Score =====
 function updateScore() {
@@ -1305,8 +1311,15 @@ function stopTuner() {
   let skBPM = 80, skPlaying = false;
   let skSchedTimer = null, skNextTime = 0, skNextBeat = 0, skNextChord = 0, skBar = 0;
   let skChords = [];
+  let skBoardBuilt = false;
 
   function skEl(id) { return document.getElementById(id); }
+
+  function ensureSkBoard() {
+    if (skBoardBuilt) return;
+    boardC.buildFretboard(); boardC.buildLegend();
+    skBoardBuilt = true;
+  }
 
   function buildSkChords() {
     const key = skEl('sketchKey').value;
@@ -1360,7 +1373,7 @@ function stopTuner() {
       if (isDown && skChords.length > 0 && skBar % bpc === 0) {
         const ci = (skBar / bpc) % skChords.length | 0;
         const delay = Math.max(0, (nt - ctx.currentTime) * 1000);
-        setTimeout(() => { skNextChord = ci; renderSkChords(); }, delay);
+        setTimeout(() => { skNextChord = ci; renderSkChords(); boardC.showChord(skChords[ci]); }, delay);
       }
       if (isDown) skBar++;
       skNextBeat = (skNextBeat + 1) % 4;
@@ -1369,6 +1382,7 @@ function stopTuner() {
   }
 
   function skStart() {
+    ensureSkBoard();
     const ctx = ensureAudio();
     skBar = 0; skNextBeat = 0; skNextChord = 0; skNextTime = ctx.currentTime + 0.05;
     skSchedTimer = setInterval(skScheduler, 25);
@@ -1383,10 +1397,12 @@ function stopTuner() {
     skEl('sketchPlayBtn').textContent = '▶ ループ再生';
     skEl('sketchPlayBtn').classList.remove('active');
     document.querySelectorAll('#sketchBeatDots .metro-beat-dot').forEach(d => d.classList.remove('active'));
+    boardC.clearAll();
     renderSkChords();
   }
 
   window.skStop = skStop;
+  window.ensureSkBoard = ensureSkBoard;
 
   function skAdjBPM(d) {
     skBPM = Math.max(40, Math.min(220, skBPM + d));
@@ -1477,6 +1493,7 @@ function setMode(m) {
     document.getElementById('choicesArea').innerHTML='';
     document.getElementById('a-controls').innerHTML='';
     tunerArea.hidden=true; sketchArea.hidden=false;
+    if(window.ensureSkBoard) window.ensureSkBoard();
   } else {
     tunerArea.hidden=true; sketchArea.hidden=true; aSection.hidden=false;
     if(window.skStop) window.skStop();
