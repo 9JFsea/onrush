@@ -167,6 +167,7 @@
   }
   .chord-btn:hover { border-color: var(--accent); color: var(--accent); }
   .chord-btn.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chord-desc { font-size: 0.75rem; color: var(--fg-dim); text-align: center; margin-top: 8px; line-height: 1.6; min-height: 1.2em; }
 
   /* ボードタグ */
   .board-tag-row {
@@ -687,13 +688,28 @@ function makeBoard(bid) {
   function clearChord() {
     bSelectedChord = null;
     document.querySelectorAll(`#${p('chord-btn-row')} .chord-btn`).forEach(b => b.classList.remove('selected'));
+    const cd = el('chord-desc'); if (cd) cd.textContent = '';
     redraw();
+  }
+
+  function showChordDesc(name) {
+    const cd = el('chord-desc'); if (!cd) return;
+    const frets = CHORD_FORMS[name]; if (!frets) { cd.textContent = ''; return; }
+    const labels = ['6弦','5弦','4弦','3弦','2弦','1弦'];
+    const parts = frets.map((f, i) => {
+      const s = labels[i];
+      if (f < 0) return `${s}ミュート`;
+      if (f === 0) return `${s}開放`;
+      return `${s}${f}フレット`;
+    });
+    cd.textContent = parts.join('　');
   }
 
   function showChord(name) {
     strumChord(name);
     bSelectedChord = name;
     document.querySelectorAll(`#${p('chord-btn-row')} .chord-btn`).forEach(b => b.classList.toggle('selected', b.dataset.chord === name));
+    showChordDesc(name);
     redraw();
   }
 
@@ -856,6 +872,7 @@ function makeBoard(bid) {
     });
     cp.appendChild(cr);
     const br = document.createElement('div'); br.className='chord-btn-row'; br.id=p('chord-btn-row'); cp.appendChild(br);
+    const cd = document.createElement('div'); cd.className='chord-desc'; cd.id=p('chord-desc'); cp.appendChild(cd);
     container.appendChild(cp);
     renderChordBtns('M');
 
