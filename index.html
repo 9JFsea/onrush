@@ -50,14 +50,12 @@
   :root[data-theme="dark"] { color-scheme: dark; }
 
   *, *::before, *::after { box-sizing: border-box; }
-  html { overflow-x: hidden; }
   html, body { height: 100%; margin: 0; }
   body {
     background: var(--bg); color: var(--fg);
     font-family: 'Noto Sans JP', system-ui, sans-serif;
     display: flex; flex-direction: column; align-items: center;
-    padding: 0 0 40px; min-height: 100%;
-    overflow-x: hidden; width: 100%;
+    padding: 0 0 40px; min-height: 100%; width: 100%;
   }
 
   header { width: 100%; text-align: center; padding: 20px 16px 10px; }
@@ -794,16 +792,17 @@ if ('serviceWorker' in navigator) {
 // ===== 指板スケール（モバイル対応） =====
 function scaleFretboards() {
   document.querySelectorAll('.fretboard').forEach(fb => {
-    const wrapper = fb.closest('.fb-wrapper');
-    if (!wrapper) return;
-    const available = wrapper.clientWidth - 32;
-    if (available < 720) {
-      fb.style.zoom = (available / 720).toFixed(3);
-    } else {
-      fb.style.zoom = '';
-    }
+    fb.style.transform = '';
+    fb.style.marginBottom = '';
+    const available = window.innerWidth - 32;
+    if (available >= 720) return;
+    const scale = available / 720;
+    const h = fb.offsetHeight;
+    fb.style.transform = `scale(${scale})`;
+    fb.style.transformOrigin = 'top left';
+    fb.style.marginBottom = `${Math.round(h * (scale - 1))}px`;
   });
 }
 window.addEventListener('resize', scaleFretboards);
-setTimeout(scaleFretboards, 50);
+setTimeout(scaleFretboards, 100);
 </script>
