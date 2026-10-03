@@ -509,12 +509,14 @@ function makeBoard(bid) {
     }
 
     if (bScaleActive && bSelectedChord) {
+      const chordFrets = CHORD_FORMS[bSelectedChord] || [];
+      const chordFormSet = new Set();
+      chordFrets.forEach((fret, si) => { if (fret >= 0) chordFormSet.add(`${si}-${fret}`); });
       STRINGS.forEach((str, si) => {
         for (let f = 0; f < NUM_FRETS; f++) {
           const ni = (str.ni + f) % 12;
-          const inChord = chordNoteSet.has(ni);
           const inScale = scaleSet.has(ni);
-          if (inChord) {
+          if (chordFormSet.has(`${si}-${f}`)) {
             const deg = INTERVAL_NAMES[(ni - rootNi + 12) % 12];
             showDot(si, f, deg, inScale ? 'chord-in-scale' : 'chord-out-scale');
           } else if (inScale) {
