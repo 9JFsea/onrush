@@ -700,9 +700,9 @@ function makeBoard(bid) {
     const labels = ['6弦','5弦','4弦','3弦','2弦','1弦'];
     cd.innerHTML = frets.map((f, i) => {
       const s = labels[i];
-      if (f < 0) return `<span class="cd-mute">${s}ミュート</span>`;
-      if (f === 0) return `<span class="cd-open">${s}開放</span>`;
-      return `<span>${s}${f}フレット</span>`;
+      if (f < 0) return `<span class="cd-mute">${s}ミ</span>`;
+      if (f === 0) return `<span class="cd-open">${s}開</span>`;
+      return `<span>${s}${f}フレ</span>`;
     }).join('<span class="cd-sep">　</span>');
   }
 
