@@ -168,6 +168,8 @@
   .chord-btn:hover { border-color: var(--accent); color: var(--accent); }
   .chord-btn.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
   .chord-desc { font-size: 0.75rem; color: var(--fg-dim); text-align: center; margin-top: 8px; line-height: 1.6; min-height: 1.2em; }
+  .cd-mute { color: #e05555; font-weight: 700; }
+  .cd-open { color: #4a90d9; font-weight: 700; }
 
   /* ボードタグ */
   .board-tag-row {
@@ -694,15 +696,14 @@ function makeBoard(bid) {
 
   function showChordDesc(name) {
     const cd = el('chord-desc'); if (!cd) return;
-    const frets = CHORD_FORMS[name]; if (!frets) { cd.textContent = ''; return; }
+    const frets = CHORD_FORMS[name]; if (!frets) { cd.innerHTML = ''; return; }
     const labels = ['6弦','5弦','4弦','3弦','2弦','1弦'];
-    const parts = frets.map((f, i) => {
+    cd.innerHTML = frets.map((f, i) => {
       const s = labels[i];
-      if (f < 0) return `${s}ミュート`;
-      if (f === 0) return `${s}開放`;
-      return `${s}${f}フレット`;
-    });
-    cd.textContent = parts.join('　');
+      if (f < 0) return `<span class="cd-mute">${s}ミュート</span>`;
+      if (f === 0) return `<span class="cd-open">${s}開放</span>`;
+      return `<span>${s}${f}フレット</span>`;
+    }).join('<span class="cd-sep">　</span>');
   }
 
   function showChord(name) {
