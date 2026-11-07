@@ -415,6 +415,18 @@
   .tuner-btn:hover { opacity: 0.85; }
   .tuner-btn.stop { background: var(--wrong); }
 
+  /* Tips */
+  .tips-wrap { max-width: 580px; margin: 16px auto 0; padding: 0 16px; display: flex; flex-direction: column; gap: 12px; }
+  .tips-card { background: var(--card); border-radius: 14px; padding: 16px 18px; }
+  .tips-card-title { font-size: 0.95rem; font-weight: 800; color: var(--accent); margin-bottom: 8px; }
+  .tips-body { font-size: 0.84rem; color: var(--fg); line-height: 1.65; margin: 0 0 6px; }
+  .tips-list { margin: 4px 0 0 0; padding-left: 1.4em; font-size: 0.84rem; color: var(--fg); line-height: 1.8; }
+  .tips-table-wrap { overflow-x: auto; margin-top: 8px; }
+  .tips-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .tips-table th { color: var(--fg-dim); font-weight: 700; padding: 4px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .tips-table td { padding: 5px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--fg); }
+  .tips-row-highlight td { color: var(--accent); font-weight: 700; background: rgba(232,152,32,0.08); }
+
   @media (max-width: 600px) {
     h1 { font-size: 1.25rem; }
     .q-note { font-size: 2.2rem; }
@@ -451,6 +463,7 @@
   <button class="tab" data-mode="note-quiz">音名→フレット</button>
   <button class="tab" data-mode="tuner">チューナー</button>
   <button class="tab" data-mode="sketch">スケッチ</button>
+  <button class="tab" data-mode="tips">Tips</button>
 </div>
 
 <div class="score-bar" id="scoreBar" hidden>
@@ -556,6 +569,60 @@
       <button class="scale-toggle-btn" id="sketchSaveBtn">保存</button>
       <span class="sketch-saved-msg" id="sketchSavedMsg"></span>
     </div>
+  </div>
+</div>
+
+<!-- Tips -->
+<div id="tipsArea" hidden>
+  <div class="tips-wrap">
+
+    <div class="tips-card">
+      <div class="tips-card-title">インターバルって何？</div>
+      <p class="tips-body">インターバル = 2つの音の「距離」のこと。フレット何個分離れてるかで決まるんじゃ。</p>
+      <div class="tips-table-wrap">
+        <table class="tips-table">
+          <thead><tr><th>半音数</th><th>名前</th><th>感じ</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>短2度</td><td>ホラー映画みたいな緊張感</td></tr>
+            <tr><td>2</td><td>長2度</td><td>ドレミの「レ」の距離</td></tr>
+            <tr><td>3</td><td>短3度</td><td>暗い、切ない</td></tr>
+            <tr><td>4</td><td>長3度</td><td>明るい、ハッピー</td></tr>
+            <tr><td>5</td><td>完全4度</td><td>ドとファの距離</td></tr>
+            <tr class="tips-row-highlight"><td>7</td><td>完全5度</td><td>力強い、安定 ← パワーコードはこれ</td></tr>
+            <tr><td>12</td><td>オクターブ</td><td>同じ音・高さだけ違う</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tips-card">
+      <div class="tips-card-title">パワーコードって？</div>
+      <p class="tips-body">ロックでよく出てくる2音だけのコード。6弦ルートのやつなら6弦と5弦を2フレット差で押さえるだけ。その2音の距離がちょうど完全5度（7フレット分）なんよな。</p>
+      <p class="tips-body">OnPushの探索タブで6弦開放（E）と5弦2フレット（B）をタップしてみて。「完全5度　7半音」って出るはずじゃ。</p>
+    </div>
+
+    <div class="tips-card">
+      <div class="tips-card-title">インターバルの活かし方</div>
+      <p class="tips-body">耳コピで「あ、音が跳んだな」ってとこで指板2箇所タップしたら距離がわかる。頭で考えんでも指で確認できるんよ。</p>
+      <p class="tips-body">コード進行のベース音の動きも見えてくる。CからGに移る時、ベース音がちょうど完全5度上がっとる。</p>
+    </div>
+
+    <div class="tips-card">
+      <div class="tips-card-title">構成音って何に使うの？</div>
+      <p class="tips-body">コードを押さえた時にどの音が鳴っとるか、のこと。Cコードなら「C・E・G」の3音。</p>
+      <p class="tips-body">これがわかると：</p>
+      <ul class="tips-list">
+        <li>ソロでそのコードの上に乗せて安全な音がわかる</li>
+        <li>CとCmの違い（Eが♭Eになるだけ）が一目でわかる</li>
+        <li>転調した時に新しいコードにすぐ対応できる</li>
+      </ul>
+    </div>
+
+    <div class="tips-card">
+      <div class="tips-card-title">ローポジションが多い理由</div>
+      <p class="tips-body">1〜5フレット付近に押さえるコードが多いのは、開放弦（0フレット）が使えるから。指が少なくて済むし音も豊か。ハイポジションはどっちかというとソロ・メロディーのエリアじゃ。</p>
+    </div>
+
   </div>
 </div>
 
@@ -1600,21 +1667,29 @@ function setMode(m) {
   nextBtn.classList.remove('visible');
 
   const sketchArea=document.getElementById('sketchArea');
+  const tipsArea=document.getElementById('tipsArea');
   if(m==='tuner') {
     scoreBar.hidden=true; aSection.hidden=true; bSection.hidden=true; bDivider.hidden=true;
     document.getElementById('promptArea').innerHTML='';
     document.getElementById('choicesArea').innerHTML='';
     document.getElementById('a-controls').innerHTML='';
-    tunerArea.hidden=false; sketchArea.hidden=true; tunerLastInfo = null; updateTunerUI(null, { reset: true });
+    tunerArea.hidden=false; sketchArea.hidden=true; tipsArea.hidden=true; tunerLastInfo = null; updateTunerUI(null, { reset: true });
   } else if(m==='sketch') {
     scoreBar.hidden=true; aSection.hidden=true; bSection.hidden=true; bDivider.hidden=true;
     document.getElementById('promptArea').innerHTML='';
     document.getElementById('choicesArea').innerHTML='';
     document.getElementById('a-controls').innerHTML='';
-    tunerArea.hidden=true; sketchArea.hidden=false;
+    tunerArea.hidden=true; sketchArea.hidden=false; tipsArea.hidden=true;
     if(window.ensureSkBoard) window.ensureSkBoard();
+  } else if(m==='tips') {
+    scoreBar.hidden=true; aSection.hidden=true; bSection.hidden=true; bDivider.hidden=true;
+    document.getElementById('promptArea').innerHTML='';
+    document.getElementById('choicesArea').innerHTML='';
+    document.getElementById('a-controls').innerHTML='';
+    tunerArea.hidden=true; sketchArea.hidden=true; tipsArea.hidden=false;
+    if(window.skStop) window.skStop();
   } else {
-    tunerArea.hidden=true; sketchArea.hidden=true; aSection.hidden=false;
+    tunerArea.hidden=true; sketchArea.hidden=true; tipsArea.hidden=true; aSection.hidden=false;
     if(window.skStop) window.skStop();
     if(m==='explore') {
       scoreBar.hidden=true;
