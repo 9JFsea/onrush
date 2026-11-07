@@ -19,7 +19,17 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => caches.match('./index.html')))
-  );
+  const url = new URL(e.request.url);
+  const isHtml = url.pathname.endsWith('/') || url.pathname.endsWith('.html');
+  if (isHtml) {
+    // HTMLはネットワーク優先 → Push後すぐ反映される
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match(e.request))
+    );
+  } else {
+    // その他はキャッシュ優先（フォント・アイコン等）
+    e.respondWith(
+      caches.match(e.request).then(cached => cached || fetch(e.request))
+    );
+  }
 });
