@@ -169,7 +169,12 @@
   }
   .chord-btn:hover { border-color: var(--accent); color: var(--accent); }
   .chord-btn.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .chord-desc { font-size: 0.75rem; color: var(--fg-dim); text-align: center; margin-top: 8px; line-height: 1.6; min-height: 1.2em; }
+  .chord-desc { font-size: 0.75rem; color: var(--fg-dim); text-align: center; margin-top: 8px; line-height: 1.8; min-height: 1.2em; }
+  .chord-tones { font-size: 0.78rem; text-align: center; margin-top: 2px; color: var(--fg-dim); letter-spacing: 0.03em; }
+  .chord-tone-note { font-weight: 700; color: var(--fg); }
+  .chord-tone-root { color: var(--accent); font-weight: 800; }
+  .interval-info { font-size: 0.82rem; text-align: center; color: var(--fg-dim); padding: 4px 0 2px; min-height: 1.4em; }
+  .interval-info span { color: var(--accent); font-weight: 700; }
   .cd-mute { color: #e05555; font-weight: 700; }
   .cd-open { color: #4a90d9; font-weight: 700; }
 
@@ -465,6 +470,7 @@
   <div id="a-controls"></div>
   <div class="fb-wrapper"><div class="fretboard" id="a-fretboard"></div></div>
   <div class="note-legend" id="a-legend"></div>
+  <div class="interval-info" id="a-interval-info"></div>
 </div>
 
 <div id="choicesArea"></div>
@@ -625,6 +631,41 @@ const PROGRESSIONS = {
   'ii – V – I':      [{d:2,q:'m',r:'ii'},{d:7,q:'',r:'V'},{d:0,q:'',r:'I'}],
 };
 
+const INTERVAL_JP = [
+  '完全1度（同音）','短2度','長2度','短3度','長3度','完全4度',
+  '三全音','完全5度','短6度','長6度','短7度','長7度',
+];
+
+function chordToneHTML(name) {
+  const frets = CHORD_FORMS[name]; if (!frets) return '';
+  const rootNi = STRINGS[0].ni; // 仮のroot、実際はコード名から
+  // コード名からルートの音名インデックスを取得
+  const noteMatch = name.match(/^([A-G]#?)/);
+  const rootName = noteMatch ? noteMatch[1] : null;
+  const rootIdx = rootName ? NOTES.indexOf(rootName) : -1;
+  const seen = new Set();
+  const tones = [];
+  frets.forEach((fret, si) => {
+    if (fret < 0) return;
+    const ni = (STRINGS[si].ni + fret) % 12;
+    if (!seen.has(ni)) { seen.add(ni); tones.push(ni); }
+  });
+  // ルートから昇順ソート
+  tones.sort((a, b) => {
+    const da = (a - rootIdx + 12) % 12, db = (b - rootIdx + 12) % 12;
+    return da - db;
+  });
+  return '構成音: ' + tones.map(ni => {
+    const cls = ni === rootIdx ? 'chord-tone-root' : 'chord-tone-note';
+    return `<span class="${cls}">${NOTES[ni]}</span>`;
+  }).join('<span style="color:var(--fg-dim)"> · </span>');
+}
+
+function intervalName(semitones) {
+  const s = ((semitones % 12) + 12) % 12;
+  return INTERVAL_JP[s] || '';
+}
+
 const NOTE_COLORS = [
   '#ff4a4a','#ff7830','#ffb020','#c8d020','#72c820','#20b850',
   '#18b8a8','#2890e8','#6055ff','#a038ff','#d825b8','#ff3080',
@@ -700,7 +741,23 @@ function makeBoard(bid) {
     d.className = 'note-dot'; d.textContent = '';
     d.style.background = ''; d.style.boxShadow = ''; d.style.color = ''; d.style.border = '';
   }
-  function clearAll() { STRINGS.forEach((_,si) => { for (let f=0;f<NUM_FRETS;f++) clearDot(si,f); }); }
+  function clearAll() { STRINGS.forEach((_,si) => { for (let f=0;f<NUM_FRETS;f++) clearDot(si,f); }); updateIntervalInfo(); }
+
+  function updateIntervalInfo() {
+    const infoEl = document.getElementById(`${bid}-interval-info`); if (!infoEl) return;
+    const activeDots = [];
+    STRINGS.forEach((str, si) => {
+      for (let f = 0; f < NUM_FRETS; f++) {
+        const d = getDot(si, f);
+        if (d && d.classList.contains('show')) activeDots.push({ si, f, ni: (str.ni + f) % 12 });
+      }
+    });
+    if (activeDots.length !== 2) { infoEl.innerHTML = ''; return; }
+    const [a, b] = activeDots;
+    const semis = ((b.ni - a.ni) + 12) % 12;
+    const semisUp = semis === 0 ? 12 : semis;
+    infoEl.innerHTML = `<span>${intervalName(semis)}</span>　<span style="color:var(--fg-dim);font-weight:400">${semisUp}半音</span>`;
+  }
 
   function resetStringLabels() {
     STRINGS.forEach((str, si) => {
@@ -778,6 +835,7 @@ function makeBoard(bid) {
     bSelectedChord = null;
     document.querySelectorAll(`#${p('chord-btn-row')} .chord-btn`).forEach(b => b.classList.remove('selected'));
     const cd = el('chord-desc'); if (cd) cd.textContent = '';
+    const ct = el('chord-tones'); if (ct) ct.innerHTML = '';
     redraw();
   }
 
@@ -791,6 +849,7 @@ function makeBoard(bid) {
       if (f === 0) return `<span class="cd-open">${s}開</span>`;
       return `<span>${s}${f}フレ</span>`;
     }).join('<span class="cd-sep">　</span>');
+    const ct = el('chord-tones'); if (ct) ct.innerHTML = chordToneHTML(name);
   }
 
   function showChord(name) {
@@ -868,6 +927,7 @@ function makeBoard(bid) {
     const dot = getDot(si,fret);
     if (dot && dot.classList.contains('show')) clearDot(si,fret);
     else { showDot(si,fret,noteName(si,fret),'show'); playNote(noteFreq(si,fret)); }
+    updateIntervalInfo();
   }
 
   function buildFretboard() {
@@ -961,6 +1021,7 @@ function makeBoard(bid) {
     cp.appendChild(cr);
     const br = document.createElement('div'); br.className='chord-btn-row'; br.id=p('chord-btn-row'); cp.appendChild(br);
     const cd = document.createElement('div'); cd.className='chord-desc'; cd.id=p('chord-desc'); cp.appendChild(cd);
+    const ctn = document.createElement('div'); ctn.className='chord-tones'; ctn.id=p('chord-tones'); cp.appendChild(ctn);
     container.appendChild(cp);
     renderChordBtns('M');
 
@@ -1204,37 +1265,64 @@ function nextQuestion() {
 let tunerStream = null, tunerAnalyser = null, tunerRAF = null, tunerBuf = null, tunerTick = 0;
 let tunerLastInfo = null, tunerLastAt = 0, tunerOkTimer = null;
 const TUNER_HOLD_MS = 2000;
+const TUNER_FREQ_BUF = [];
+const TUNER_FREQ_BUF_SIZE = 7;
 
+// YINアルゴリズム: オクターブ誤検出が少なく低弦にも強い
 function detectPitch(buffer, sampleRate) {
-  const SIZE = buffer.length;
+  const N = buffer.length;
   let rms = 0;
-  for (let i = 0; i < SIZE; i++) rms += buffer[i] * buffer[i];
-  if (Math.sqrt(rms / SIZE) < 0.01) return -1;
+  for (let i = 0; i < N; i++) rms += buffer[i] * buffer[i];
+  if (Math.sqrt(rms / N) < 0.015) return -1;
 
-  let r1 = 0, r2 = SIZE - 1;
-  for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buffer[i]) < 0.2) { r1 = i; break; }
-  for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buffer[SIZE - i]) < 0.2) { r2 = SIZE - i; break; }
-  const buf = buffer.slice(r1, r2);
-  const N = buf.length;
-  if (N < 4) return -1;
+  const half = N >> 1;
 
-  const corr = new Float32Array(N);
-  for (let i = 0; i < N; i++)
-    for (let j = 0; j < N - i; j++)
-      corr[i] += buf[j] * buf[j + i];
+  // YIN差分関数
+  const diff = new Float32Array(half);
+  for (let tau = 1; tau < half; tau++) {
+    for (let j = 0; j < half; j++) {
+      const d = buffer[j] - buffer[j + tau];
+      diff[tau] += d * d;
+    }
+  }
 
-  let d = 0;
-  while (d < N - 1 && corr[d] > corr[d + 1]) d++;
+  // 累積平均正規化差分
+  const cmnd = new Float32Array(half);
+  cmnd[0] = 1;
+  let runSum = 0;
+  for (let tau = 1; tau < half; tau++) {
+    runSum += diff[tau];
+    cmnd[tau] = runSum === 0 ? 0 : diff[tau] * tau / runSum;
+  }
 
-  let maxVal = -1, maxIdx = -1;
-  for (let i = d; i < N; i++) if (corr[i] > maxVal) { maxVal = corr[i]; maxIdx = i; }
+  // 閾値を下回る最初のτを探す
+  const THRESHOLD = 0.12;
+  let tau = 2;
+  while (tau < half - 1) {
+    if (cmnd[tau] < THRESHOLD) {
+      while (tau + 1 < half - 1 && cmnd[tau + 1] < cmnd[tau]) tau++;
+      break;
+    }
+    tau++;
+  }
+  if (tau >= half - 1) return -1;
 
-  if (maxIdx < 1 || maxIdx >= N - 1 || maxVal / corr[0] < 0.5) return -1;
+  // 放物線補間でサブサンプル精度に
+  const pa = cmnd[tau - 1], pb = cmnd[tau], pc = cmnd[tau + 1];
+  const denom = 2 * (2 * pb - pa - pc);
+  const shift = denom !== 0 ? (pc - pa) / denom : 0;
+  const period = tau + (isFinite(shift) ? shift : 0);
 
-  const a = corr[maxIdx - 1] + corr[maxIdx + 1] - 2 * corr[maxIdx];
-  const b = (corr[maxIdx + 1] - corr[maxIdx - 1]) / 2;
-  const period = a ? maxIdx - b / (2 * a) : maxIdx;
   return sampleRate / period;
+}
+
+// 中央値フィルター: 一瞬の誤検出にブレにくくする
+function medianFreq(freq) {
+  TUNER_FREQ_BUF.push(freq);
+  if (TUNER_FREQ_BUF.length > TUNER_FREQ_BUF_SIZE) TUNER_FREQ_BUF.shift();
+  if (TUNER_FREQ_BUF.length < 3) return freq;
+  const sorted = [...TUNER_FREQ_BUF].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
 }
 
 function freqToNoteInfo(freq) {
@@ -1283,7 +1371,8 @@ function tunerLoop() {
   tunerRAF = requestAnimationFrame(tunerLoop);
   if (++tunerTick % 4 !== 0 || !tunerAnalyser || !tunerBuf) return;
   tunerAnalyser.getFloatTimeDomainData(tunerBuf);
-  const freq = detectPitch(tunerBuf, (audioCtx || { sampleRate: 44100 }).sampleRate);
+  const rawFreq = detectPitch(tunerBuf, (audioCtx || { sampleRate: 44100 }).sampleRate);
+  const freq = rawFreq > 0 ? medianFreq(rawFreq) : rawFreq;
   const now = performance.now();
   if (freq > 0) {
     const info = freqToNoteInfo(freq);
@@ -1310,7 +1399,7 @@ function toggleTuner() {
         const ctx = ensureAudio();
         const src = ctx.createMediaStreamSource(stream);
         tunerAnalyser = ctx.createAnalyser();
-        tunerAnalyser.fftSize = 2048;
+        tunerAnalyser.fftSize = 4096;
         src.connect(tunerAnalyser);
         tunerBuf = new Float32Array(tunerAnalyser.fftSize);
         tunerTick = 0; tunerLoop();
