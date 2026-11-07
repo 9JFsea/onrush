@@ -396,6 +396,12 @@
   .tuner-str-name { font-size: 0.88rem; font-weight: 700; color: var(--fg); }
   .tuner-str-hz { font-size: 0.58rem; color: var(--fg-dim); }
   .tuner-hint { font-size: 0.78rem; color: var(--fg-dim); text-align: center; }
+  .tuner-ok {
+    font-size: 1.5rem; font-weight: 800; color: var(--correct);
+    opacity: 0; transition: opacity 0.2s; letter-spacing: 0.05em;
+    min-height: 1.8em; display: flex; align-items: center; justify-content: center;
+  }
+  .tuner-ok.show { opacity: 1; }
   .tuner-btn {
     margin-top: 10px; padding: 11px 36px; border-radius: 10px; border: none;
     background: var(--accent); color: #fff; font-family: inherit;
@@ -485,6 +491,7 @@
       <div class="tuner-str-chip"><span class="tuner-str-name">2弦 B</span><span class="tuner-str-hz">247 Hz</span></div>
       <div class="tuner-str-chip"><span class="tuner-str-name">1弦 E</span><span class="tuner-str-hz">330 Hz</span></div>
     </div>
+    <div class="tuner-ok" id="tunerOk"></div>
     <p class="tuner-hint">ギターの弦を鳴らすと自動で音名とズレを検出します</p>
     <button class="tuner-btn" id="tunerBtn" onclick="toggleTuner()">チューニング開始</button>
   </div>
@@ -1195,6 +1202,8 @@ function nextQuestion() {
 
 // ===== Tuner =====
 let tunerStream = null, tunerAnalyser = null, tunerRAF = null, tunerBuf = null, tunerTick = 0;
+let tunerLastInfo = null, tunerLastAt = 0, tunerOkTimer = null;
+const TUNER_HOLD_MS = 2000;
 
 function detectPitch(buffer, sampleRate) {
   const SIZE = buffer.length;
@@ -1237,26 +1246,37 @@ function freqToNoteInfo(freq) {
   return { name: names[((midi % 12) + 12) % 12], octave: Math.floor(midi / 12) - 1, cents };
 }
 
-function updateTunerUI(info) {
+function showTunerOk() {
+  const ok = document.getElementById('tunerOk'); if (!ok) return;
+  ok.textContent = '✓ GOOD'; ok.classList.add('show');
+  if (tunerOkTimer) clearTimeout(tunerOkTimer);
+  tunerOkTimer = setTimeout(() => { ok.classList.remove('show'); tunerOkTimer = null; }, 1500);
+}
+
+function updateTunerUI(info, { dim = false, reset = false } = {}) {
   const noteEl = document.getElementById('tunerNote');
   const octEl  = document.getElementById('tunerOct');
   const centEl = document.getElementById('tunerCents');
   const dotEl  = document.getElementById('tunerDot');
   if (!noteEl) return;
-  if (!info) {
-    noteEl.textContent = '–'; noteEl.style.color = '';
+  if (reset) {
+    noteEl.textContent = '–'; noteEl.style.color = ''; noteEl.style.opacity = '';
     octEl.textContent = ''; centEl.textContent = '音を鳴らしてください'; centEl.style.color = '';
     if (dotEl) dotEl.style.left = '50%';
+    const ok = document.getElementById('tunerOk'); if (ok) ok.classList.remove('show');
     return;
   }
+  if (!info) return;
   const cents = info.cents;
   const inTune = Math.abs(cents) < 5, close = Math.abs(cents) < 15;
   const color = inTune ? 'var(--correct)' : close ? 'var(--accent)' : 'var(--wrong)';
-  noteEl.textContent = info.name; noteEl.style.color = color;
-  octEl.textContent = info.octave;
-  centEl.textContent = cents > 0 ? `+${cents.toFixed(1)}¢` : `${cents.toFixed(1)}¢`;
-  centEl.style.color = color;
-  if (dotEl) dotEl.style.left = Math.max(5, Math.min(95, 50 + (cents / 50) * 45)) + '%';
+  noteEl.textContent = info.name; noteEl.style.color = dim ? 'var(--fg-dim)' : color;
+  noteEl.style.opacity = dim ? '0.45' : '1';
+  octEl.textContent = info.octave; octEl.style.opacity = dim ? '0.45' : '1';
+  centEl.textContent = dim ? '…' : (cents > 0 ? `+${cents.toFixed(1)}¢` : `${cents.toFixed(1)}¢`);
+  centEl.style.color = dim ? 'var(--fg-dim)' : color;
+  if (dotEl) dotEl.style.left = (dim ? 50 : Math.max(5, Math.min(95, 50 + (cents / 50) * 45))) + '%';
+  if (!dim && inTune) showTunerOk();
 }
 
 function tunerLoop() {
@@ -1264,7 +1284,15 @@ function tunerLoop() {
   if (++tunerTick % 4 !== 0 || !tunerAnalyser || !tunerBuf) return;
   tunerAnalyser.getFloatTimeDomainData(tunerBuf);
   const freq = detectPitch(tunerBuf, (audioCtx || { sampleRate: 44100 }).sampleRate);
-  updateTunerUI(freq > 0 ? freqToNoteInfo(freq) : null);
+  const now = performance.now();
+  if (freq > 0) {
+    const info = freqToNoteInfo(freq);
+    if (info) { tunerLastInfo = info; tunerLastAt = now; updateTunerUI(info); }
+  } else if (tunerLastInfo && now - tunerLastAt < TUNER_HOLD_MS) {
+    updateTunerUI(tunerLastInfo, { dim: true });
+  } else {
+    tunerLastInfo = null; updateTunerUI(null, { reset: true });
+  }
 }
 
 function toggleTuner() {
@@ -1274,7 +1302,7 @@ function toggleTuner() {
     tunerStream.getTracks().forEach(t => t.stop()); tunerStream = null;
     tunerAnalyser = null; tunerBuf = null;
     if (btn) { btn.textContent = 'チューニング開始'; btn.classList.remove('stop'); }
-    updateTunerUI(null);
+    tunerLastInfo = null; updateTunerUI(null, { reset: true });
   } else {
     navigator.mediaDevices.getUserMedia({ audio: true, video: false })
       .then(stream => {
@@ -1300,6 +1328,8 @@ function stopTuner() {
   cancelAnimationFrame(tunerRAF); tunerRAF = null;
   tunerStream.getTracks().forEach(t => t.stop()); tunerStream = null;
   tunerAnalyser = null; tunerBuf = null;
+  tunerLastInfo = null;
+  if (tunerOkTimer) { clearTimeout(tunerOkTimer); tunerOkTimer = null; }
   const btn = document.getElementById('tunerBtn');
   if (btn) { btn.textContent = 'チューニング開始'; btn.classList.remove('stop'); }
 }
@@ -1486,7 +1516,7 @@ function setMode(m) {
     document.getElementById('promptArea').innerHTML='';
     document.getElementById('choicesArea').innerHTML='';
     document.getElementById('a-controls').innerHTML='';
-    tunerArea.hidden=false; sketchArea.hidden=true; updateTunerUI(null);
+    tunerArea.hidden=false; sketchArea.hidden=true; tunerLastInfo = null; updateTunerUI(null, { reset: true });
   } else if(m==='sketch') {
     scoreBar.hidden=true; aSection.hidden=true; bSection.hidden=true; bDivider.hidden=true;
     document.getElementById('promptArea').innerHTML='';
